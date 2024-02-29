@@ -5,14 +5,17 @@
 #include "ast.h"
 
 
-struct ASTNode {
+struct ASTnode {
 
     NodeType type;
     char *name;
 
-    struct ASTNode *child1;
-    struct ASTNode *child2;
-    struct ASTNode *child3;
+    int intConst;
+    struct symbol *symbolPointer;
+
+    struct ASTnode *child1;
+    struct ASTnode *child2;
+    struct ASTnode *child3;
 
 
 };
@@ -45,6 +48,7 @@ extern char *lexeme;
 extern int get_token();
 extern int lineNum;
 extern int chk_decl_flag;
+extern int print_ast_flag;
 int curArgs;
 int currentTok;
 int isError = 0;
@@ -54,9 +58,140 @@ char *curIdentifier;
 //this function takes every character of lexeme and pushes it back to stdin.
 void type();
 void id_list();
-void opt_stmt_list();
-void assg_stmt();
-//expected identifier, got undef
+struct ASTnode *opt_stmt_list();
+struct ASTnode *assg_stmt();
+
+//returning type of funtion
+NodeType ast_node_type(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->type;
+}
+//returning function name
+char *func_def_name(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->name;
+}
+//returning number of args
+int func_def_nargs(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->symbolPointer->numOfArguments;
+}
+
+//getting the nth argname from the function
+char *func_def_argname(void *ptr, int n) {
+
+    
+    struct ASTnode *ast = ptr;
+
+    struct argNode *curArg;
+    int i = 1;
+    for (curArg = ast->symbolPointer->args; curArg != NULL; curArg = curArg->next) {
+        if (i == n) {
+            return curArg->argName;
+        }
+    }
+    return "UNDEFINED";
+
+}
+
+void * func_def_body(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1;
+}
+
+char * func_call_callee(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->name;
+}
+
+void * func_call_args(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1;
+}
+
+void * stmt_list_head(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1;
+}
+void * stmt_list_rest(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child2;  
+}
+
+void * expr_list_head(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1;
+
+}
+void * expr_list_rest(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child2;
+}
+
+char *expr_id_name(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->name;
+}
+int expr_intconst_val(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->intConst;
+}
+void * expr_operand_1(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1;
+}
+void * expr_operand_2(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child2;
+}
+void * stmt_if_expr(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1;
+}
+
+void * stmt_if_then(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child2;
+}
+void * stmt_if_else(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child3; 
+}
+
+char *stmt_assg_lhs(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->name;
+}
+void *stmt_assg_rhs(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1;
+}
+
+void *stmt_while_expr(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1;
+}
+
+void *stmt_while_body(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child2;  
+}
+
+void *stmt_return_expr(void *ptr) {
+    struct ASTnode *ast = ptr;
+    return ast->child1; 
+}
+
+
+
+
+
+
+
+
+
+
+
 void contains(char *curID, char *typeInf) {
     if (theScope->symbolList == NULL) {
         struct symbol *newSymbol = malloc(sizeof(struct symbol));
@@ -107,9 +242,9 @@ void containsFunc(char *curID) {
             for (curSymbol = curScope->symbolList; curSymbol != NULL; curSymbol = curSymbol->next) {
                 //if the symbol we're looking at is not a function and is in the local scope
                 if (i == 0 && strcmp(curSymbol->name, curID) == 0 && strcmp(curSymbol->typeInfo, "function") != 0) {
-                    
-                    fprintf(stderr, "ERROR LINE %d UNDECLARED FUNCTION %s\n", lineNum, curID);
-                    exit(1);  
+                    //TODO ADD THIS BACK IF YOU NEED TO
+                    // fprintf(stderr, "ERROR LINE %d UNDECLARED FUNCTION %s\n", lineNum, curID);
+                    // exit(1);  
                 }
                 if (strcmp(curSymbol->name, curID) == 0) {
                     return; 
@@ -122,27 +257,29 @@ void containsFunc(char *curID) {
     }
 }
 
-void containsParameter(char *curID) {
-    if (chk_decl_flag) {
-        struct scope *curScope;
-        int i = 0;
-        for (curScope = theScope; curScope != NULL; curScope = curScope->nextScope) {
-            struct symbol *curSymbol = NULL;
-            for (curSymbol = curScope->symbolList; curSymbol != NULL; curSymbol = curSymbol->next) {
-                //if the symbol we're looking at is not a function and is in the local scope
-                // if (i == 0 && strcmp(curSymbol->name, curID) == 0 && strcmp(curSymbol->typeInfo, "function") != 0) {
-                //     fprintf(stderr, "ERROR LINE %d UNDECLARED FUNCTION %s\n", lineNum, curID);
-                //     exit(1);  
-                // }
-                if (strcmp(curSymbol->name, curID) == 0 && strcmp(curSymbol->typeInfo, "variable" ) == 0) {
-                    return; 
-                }
+struct symbol *containsParameter(char *curID) {
+    struct scope *curScope;
+    int i = 0;
+    for (curScope = theScope; curScope != NULL; curScope = curScope->nextScope) {
+        struct symbol *curSymbol = NULL;
+        for (curSymbol = curScope->symbolList; curSymbol != NULL; curSymbol = curSymbol->next) {
+            //if the symbol we're looking at is not a function and is in the local scope
+            // if (i == 0 && strcmp(curSymbol->name, curID) == 0 && strcmp(curSymbol->typeInfo, "function") != 0) {
+            //     fprintf(stderr, "ERROR LINE %d UNDECLARED FUNCTION %s\n", lineNum, curID);
+            //     exit(1);  
+            // }
+            if (strcmp(curSymbol->name, curID) == 0 && strcmp(curSymbol->typeInfo, "variable" ) == 0) {
+                return curSymbol; 
             }
-            i += 1;
         }
+        i += 1;
+    }
+    if (chk_decl_flag) {
         fprintf(stderr, "ERROR LINE %d PARAMETER NOT PREVIOUSLY DEFINED %s\n", lineNum, curID);
         exit(1);
     }
+
+    return NULL;
 }
 
 
@@ -157,16 +294,26 @@ void match(char expected) {
     }
 }
 
-void arith_exp() {
+struct ASTnode *arith_exp() {
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type= IF;
+    ast->name = strdup(lexeme); //need to set name
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
     if (currentTok == ID) {
         //if there is use of an ID, check if it has been previously defined
         if (chk_decl_flag) {
-            containsParameter(lexeme);
+            ast->symbolPointer = containsParameter(lexeme);
         }
         
         match(ID);
     }
     else if (currentTok == INTCON) {
+        int a = atoi(lexeme);
+        ast->intConst = a;
         match(INTCON);
     }
     else{
@@ -174,54 +321,39 @@ void arith_exp() {
         exit(1); 
     }
 
-}
-
-void arith_exp_assg() {
-    if (currentTok == ID) {
-        //if there is use of an ID, check if it has been previously defined
-        if (chk_decl_flag) {
-            containsParameter(lexeme);
-        }
-        
-        match(ID);
-    }
-    else if (currentTok == INTCON) {
-        match(INTCON);
-    }
-    else{
-        fprintf(stderr, "ERROR LINE %d IN arith_expr\n", lineNum);
-        exit(1); 
-    }
+    return ast;
 
 }
 
 
 
 
-void relop() {
+
+
+int relop() {
     if (currentTok == opEQ) {
         match(opEQ);
-        return;
+        return opEQ;
     }    
     else if (currentTok == opNE) {
         match(opNE);
-        return;
+        return opNE;
     }
     else if (currentTok == opLE){
         match(opLE);
-        return;
+        return opLE;
     }    
     else if (currentTok == opLT) {
         match(opLT);
-        return;
+        return opLT;
     }    
     else if (currentTok == opGE) {
         match(opGE);
-        return;
+        return opGE;
     }
     else if (currentTok == opGT) {
         match(opGT);
-        return;
+        return opGT;
     }
     else {
         fprintf(stderr, "ERROR LINE %d IN relop\n", lineNum);
@@ -229,85 +361,174 @@ void relop() {
     }
 }
 
-void bool_exp() {
+struct ASTnode *bool_exp() {
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->name = strdup("bool_exp");
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
+    
+    ast->child1 = arith_exp();
+    NodeType type = relop();
+    ast->type= type;
+    ast->child2 = arith_exp();
 
-    arith_exp();
-    relop();
-    arith_exp();
+    return ast;
 
 
 }
 
-void expr_list() {
-    arith_exp();
+struct ASTnode *expr_list() {
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type= EXPR_LIST;
+    ast->name = strdup("EXPR_LIST");
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
+    
+    ast->child1 = arith_exp();
+
     curArgs += 1;
     if (currentTok == COMMA) {
         match(COMMA);
-        expr_list();
-        return;
+        ast->child2 = expr_list();
     }
+
+    return ast;
 
 }
 
-void opt_expr_list() {
+struct ASTnode *opt_expr_list() {
     if (currentTok == RPAREN) {
-        return;
+        return NULL;
     }
-    expr_list();
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type= EXPR_LIST;
+    ast->name = strdup("EXPR_LIST");
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
+    ast->child1 = expr_list();
+    return ast;
 }
-void fn_call() {
+struct ASTnode *fn_call() {
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type= FUNC_CALL;
+    ast->name = strdup(curIdentifier);
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
     if (chk_decl_flag) {
         containsFunc(curIdentifier);
     }
     
     match(LPAREN);
-    opt_expr_list();
+    ast->child1 = opt_expr_list();
     match(RPAREN);
+    return ast;
 }
 
-void stmt();
-void while_stmt() {
+struct ASTnode *stmt();
+
+struct ASTnode *while_stmt() {
+
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type= WHILE;
+    ast->name = strdup("WHILE");
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
+
 
     match(kwWHILE);
     match(LPAREN);
-    bool_exp();
+    ast->child1 = bool_exp();
     match(RPAREN);
-    stmt();
+    ast->child2 = stmt();
+
+    return ast;
 
 
 }
 
-void if_stmt() {
+struct ASTnode *if_stmt() {
+
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type= IF;
+    ast->name = strdup("IF");
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
+
     match(kwIF);
+
     match(LPAREN);
-    bool_exp();
+    ast->child1 = bool_exp();
     match(RPAREN);
-    stmt();
+    ast->child2 = stmt();
+
     if (currentTok == kwELSE) {
         match(kwELSE);
-        stmt();
+        ast->child3 = stmt();
     }
+
+    return ast;
+
 }
 
-void return_stmt() {
+struct ASTnode *return_stmt() {
+
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type= RETURN;
+    ast->name = strdup("RETURN");
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
+
     match(kwRETURN);
     if (currentTok == ID || currentTok == INTCON) {
         //if the current token is an ID, set the curIdentifier to the lexeme ID
         if (currentTok == ID) {
             curIdentifier = strdup(lexeme);
         }
-        arith_exp();
+        ast->child1 = arith_exp();
     }
     match(SEMI);
+
+    return ast;
 }
 
-void assg_stmt() {
-    arith_exp();
+struct ASTnode *assg_stmt() {
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type= ASSG;
+    ast->name = strdup(lexeme);
+    ast->intConst = 0;
+    ast->symbolPointer = NULL;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
+    ast->child1 = arith_exp();
     match(SEMI);
+
+    return ast;
 }
 
-void stmt() {
-
+struct ASTnode *stmt() {
+    struct ASTnode *ast = NULL;
     //add other statements
 
     //if current token is while, the statement is a whille loop etc
@@ -322,12 +543,17 @@ void stmt() {
                 containsParameter(curIdentifier);
             }
             match(opASSG);
-            assg_stmt();
-            return;
+            ast = assg_stmt();
         }
-        //function call
-        curArgs = 0;
-        fn_call();
+        else if (currentTok == LPAREN) {
+            //function call
+            curArgs = 0;
+            ast = fn_call();
+        }
+        else {
+            printf("some error\n");
+        }
+
 
         //here we will check if the number of arguments for the function matches
         //the number of arguments for the function call
@@ -362,42 +588,54 @@ void stmt() {
 
 
         match(SEMI);
-        return;
     }
     else if (currentTok == kwWHILE) {
-        while_stmt();
-        return;
+        ast = while_stmt();
     }
     else if (currentTok == kwIF) {
-        if_stmt();
+        ast = if_stmt();
     }
     else if (currentTok == SEMI) {
         match(SEMI);
-        return;
+        ast = NULL;
     }
     else if (currentTok == kwRETURN) {
-        return_stmt();
+        ast = return_stmt();
     }
     else if (currentTok == LBRACE) {
         match(LBRACE);
-        opt_stmt_list();
+        ast = opt_stmt_list();
         match(RBRACE);
     }
     else {
         fprintf(stderr, "ERROR LINE %d IN stmt\n", lineNum);
         exit(1);
     }
+    return ast;
 
 }
 
-void opt_stmt_list() {
-    //currentTok == RBRACE means that we have reached the end of the function content,
-    //meaning we can use it as our exit condition
-    if (currentTok == RBRACE) {
-        return;
+struct ASTnode *opt_stmt_list() {
+    if (currentTok != RBRACE) {
+        struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+        ast->type = STMT_LIST;
+        ast->name = strdup("stmt");
+        ast->intConst = 0;
+        ast->symbolPointer = NULL;
+        ast->child1 = NULL;
+        ast->child2 = NULL;
+        ast->child3 = NULL;
+        ast->child1 = stmt();
+        ast->child2 = opt_stmt_list();
+        return ast;
     }
-    stmt();
-    opt_stmt_list();
+    //if we are at the end, return NULL
+    else {
+        return NULL;
+    }
+    
+    
+    
 
 
 }
@@ -489,7 +727,17 @@ void opt_vars_decls() {
 }
 
 //match function definition
-void func_defn() {
+struct ASTnode *func_defn() {
+    //creating the AST node 
+    struct ASTnode *ast = malloc(sizeof(struct ASTnode));
+    ast->type = FUNC_DEF;
+    ast->name = strdup(curFuncName);
+    ast->symbolPointer = NULL;
+    ast->intConst = 0;
+    ast->child1 = NULL;
+    ast->child2 = NULL;
+    ast->child3 = NULL;
+
 
     match(LPAREN);
     opt_formals();
@@ -504,6 +752,11 @@ void func_defn() {
             //if the current symbol is a function and the current symbol's name matches curI
             //then set its arg count to curArgs
             if (strcmp(curSymbol->typeInfo, "function") == 0 && strcmp(curSymbol->name, curID) == 0) {
+                
+                //setting the ASTs symbolTable pointer for this function to the function's table entry
+                ast->symbolPointer = curSymbol;
+                
+                
                 curSymbol->numOfArguments = curArgs;
                 stop = 1;
                 break;
@@ -520,8 +773,10 @@ void func_defn() {
 
     match(LBRACE);
     opt_vars_decls();
-    opt_stmt_list();
+    ast->child1 = opt_stmt_list();
     match(RBRACE);
+
+    return ast;
 }
 
 void id_list() {
@@ -602,8 +857,11 @@ void prog() {
 
                 curArgs = 0;
                 curFuncName = strdup(curID);
-                func_defn();
+                struct ASTnode *tree = func_defn();
                 
+                if (print_ast_flag) {
+                    print_ast(tree);
+                }
 
 
 
