@@ -89,9 +89,9 @@ char *func_def_argname(void *ptr, int n) {
         if (i == n) {
             return curArg->argName;
         }
+        i += 1;
     }
     return "UNDEFINED";
-
 }
 
 void * func_def_body(void *ptr) {
@@ -243,8 +243,8 @@ void containsFunc(char *curID) {
                 //if the symbol we're looking at is not a function and is in the local scope
                 if (i == 0 && strcmp(curSymbol->name, curID) == 0 && strcmp(curSymbol->typeInfo, "function") != 0) {
                     //TODO ADD THIS BACK IF YOU NEED TO
-                    // fprintf(stderr, "ERROR LINE %d UNDECLARED FUNCTION %s\n", lineNum, curID);
-                    // exit(1);  
+                    fprintf(stderr, "ERROR LINE %d UNDECLARED FUNCTION %s\n", lineNum, curID);
+                    exit(1);  
                 }
                 if (strcmp(curSymbol->name, curID) == 0) {
                     return; 
@@ -296,7 +296,6 @@ void match(char expected) {
 
 struct ASTnode *arith_exp() {
     struct ASTnode *ast = malloc(sizeof(struct ASTnode));
-    ast->type= IF;
     ast->name = strdup(lexeme); //need to set name
     ast->intConst = 0;
     ast->symbolPointer = NULL;
@@ -306,6 +305,7 @@ struct ASTnode *arith_exp() {
     if (currentTok == ID) {
         //if there is use of an ID, check if it has been previously defined
         if (chk_decl_flag) {
+            ast->type = IDENTIFIER;
             ast->symbolPointer = containsParameter(lexeme);
         }
         
@@ -314,6 +314,7 @@ struct ASTnode *arith_exp() {
     else if (currentTok == INTCON) {
         int a = atoi(lexeme);
         ast->intConst = a;
+        ast->type = INTCONST;
         match(INTCON);
     }
     else{
@@ -330,30 +331,30 @@ struct ASTnode *arith_exp() {
 
 
 
-int relop() {
+NodeType relop() {
     if (currentTok == opEQ) {
         match(opEQ);
-        return opEQ;
+        return EQ;
     }    
     else if (currentTok == opNE) {
         match(opNE);
-        return opNE;
+        return NE;
     }
     else if (currentTok == opLE){
         match(opLE);
-        return opLE;
+        return LE;
     }    
     else if (currentTok == opLT) {
         match(opLT);
-        return opLT;
+        return LT;
     }    
     else if (currentTok == opGE) {
         match(opGE);
-        return opGE;
+        return GE;
     }
     else if (currentTok == opGT) {
         match(opGT);
-        return opGT;
+        return GT;
     }
     else {
         fprintf(stderr, "ERROR LINE %d IN relop\n", lineNum);
@@ -426,9 +427,7 @@ struct ASTnode *fn_call() {
     ast->child1 = NULL;
     ast->child2 = NULL;
     ast->child3 = NULL;
-    if (chk_decl_flag) {
-        containsFunc(curIdentifier);
-    }
+    containsFunc(curIdentifier);
     
     match(LPAREN);
     ast->child1 = opt_expr_list();
@@ -515,7 +514,7 @@ struct ASTnode *return_stmt() {
 struct ASTnode *assg_stmt() {
     struct ASTnode *ast = malloc(sizeof(struct ASTnode));
     ast->type= ASSG;
-    ast->name = strdup(lexeme);
+    ast->name = strdup(curIdentifier);
     ast->intConst = 0;
     ast->symbolPointer = NULL;
     ast->child1 = NULL;
@@ -544,15 +543,12 @@ struct ASTnode *stmt() {
             }
             match(opASSG);
             ast = assg_stmt();
+            return ast;
         }
-        else if (currentTok == LPAREN) {
-            //function call
-            curArgs = 0;
-            ast = fn_call();
-        }
-        else {
-            printf("some error\n");
-        }
+        curArgs = 0;
+        ast = fn_call();
+        
+
 
 
         //here we will check if the number of arguments for the function matches
