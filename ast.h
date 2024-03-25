@@ -14,21 +14,21 @@
  *******************************************************************************/
 
 typedef enum {
-  DUMMY,            /* a placeholder */
-  FUNC_DEF,         /* function definition */
-  FUNC_CALL,        /* function call */
-  IF,               /* if statement */
-  WHILE,            /* while statement */
-  ASSG,             /* assignment statement */
-  RETURN,           /* return statement */
-  STMT_LIST,        /* list of statements */
-  EXPR_LIST,        /* list of expressions */
-  IDENTIFIER,       /* identifier */
-  INTCONST,         /* integer constant */
-  EQ,               /* == */
-  NE,               /* != */
-  LE,               /* <= */
-  LT,               /* < */
+  DUMMY,            /* 0 a placeholder */
+  FUNC_DEF,         /* 1 function definition */
+  FUNC_CALL,        /* 2 function call */
+  IF,               /* 3 if statement */
+  WHILE,            /* 4 while statement */
+  ASSG,             /* 5 assignment statement */
+  RETURN,           /* 6 return statement */
+  STMT_LIST,        /* 7 list of statements */
+  EXPR_LIST,        /* 8 list of expressions */
+  IDENTIFIER,       /* 9 identifier */
+  INTCONST,         /* 10 integer constant */
+  EQ,               /* 11 == */
+  NE,               /* 12 != */
+  LE,               /* 13 <= */
+  LT,               /* 14 < */
   GE,               /* >= */
   GT,               /* > */
   ADD,              /* + */
@@ -37,7 +37,10 @@ typedef enum {
   DIV,              /* / */
   UMINUS,           /* - (unary) */
   AND,              /* && */
-  OR                /* || */
+  OR,               /* 25 || */
+  OPT_EXPR_LIST,
+  BOOL_EXPR
+
 } NodeType;
 
 /*******************************************************************************
